@@ -1,5 +1,5 @@
 module Zipr
-  @cache_path = (Zipr.config['common']['paths']['cache'] || Dir.tmpdir()) + '/zipr'
+  @cache_path = (Zipr.config['paths']['cache'] || Dir.tmpdir()) + '/zipr'
 
   module Archive
     module_function

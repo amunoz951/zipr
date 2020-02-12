@@ -7,10 +7,8 @@ module Zipr
 
   def defaults
     {
-      'common' => {
-        'paths' => {
-          'cache' => nil,
-        },
+      'paths' => {
+        'cache' => nil,
       },
     }
   end

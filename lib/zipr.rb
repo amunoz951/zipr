@@ -15,14 +15,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-require 'zip'
+require 'zip' # rubyzip gem
 require 'digest'
 require 'easy_io'
 require 'json'
 require 'tmpdir'
 require 'fileutils'
-require 'seven_zip_ruby'
+require 'seven_zip_ruby_am'
 require 'os'
+
 require_relative 'zipr/config'
 require_relative 'zipr/archive'
 require_relative 'zipr/helper'

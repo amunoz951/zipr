@@ -2,13 +2,13 @@ module Zipr
   module_function
 
   def config
-    @config ||= EasyJson.config(defaults: defaults)
+    @config ||= EasyJSON.config(defaults: defaults)
   end
 
   def defaults
     {
       'paths' => {
-        'cache' => nil,
+        'cache' => Dir.tmpdir,
       },
     }
   end

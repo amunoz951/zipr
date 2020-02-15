@@ -1,22 +1,42 @@
 module Zipr
-  @cache_path = (Zipr.config['paths']['cache'] || Dir.tmpdir()) + '/zipr'
+  class Archive
+    @cache_path = "#{Zipr.config['paths']['cache']}/zipr"
 
-  module Archive
-    module_function
+    def self.open(path)
+      Zipr::Archive.new(path)
+    end
 
-    # options: { exclude_files: [], exclude_unless_missing: [], archive_type: :zip, password: nil }
-    # archive_type values: :zip, :seven_zip
-    # mode values:
+    #
+    # Add files to an existing archive or create one if it does not exist
+    # source_folder is the path from which relative paths will be derived
+    # source_files is an array of files to be added to the archive. Relative or full paths accepted.
+    # options:
+    #   archive_type: :seven_zip or :zip
+    #   silent: false
+    def self.add(path, source_folder, source_files, options: nil, archive_checksums: nil)
+      Zipr::Archive.new(path).add(source_folder, source_files, options: options, archive_checksums: archive_checksums)
+    end
+
+    def initialize(path)
+      @path = path
+    end
+
+    #
+    # options:
+    #   exclude_files: [] - an array of files to be excluded from extraction. Use relative paths, wildcards, or regex
+    #   exclude_unless_missing: [], archive_type: :zip, password: nil, silent: false }
+    # archive_type: :zip, :seven_zip
+    # mode:
     #   :idempotent - overwrites only when a file does not have the same content as the file in the zip file
     #   :overwrite - always overwrites all files
     #   :if_missing - never overwrites any files, only extracts if the file does not exist in the destination
-    def extract(archive_path, destination_folder, changed_files: nil, options: nil, archive_checksums: nil, mode: :idempotent)
+    def extract(destination_folder, changed_files: nil, options: nil, archive_checksums: nil, mode: :idempotent)
       options ||= {}
       options[:archive_type] ||= :zip
       options[:overwrite] = mode != :if_missing
-      checksum_path = "#{@cache_path}/checksums/#{File.basename(archive_path)}.txt"
+      checksum_path = "#{@cache_path}/checksums/#{::File.basename(@path)}.txt"
       if mode == :idempotent
-        calculated_changed_files, calculated_archive_checksums = changed_files_for_extract(archive_path, checksum_path, destination_folder, options)
+        calculated_changed_files, calculated_archive_checksums = changed_files_for_extract(checksum_path, destination_folder, options)
         changed_files ||= calculated_changed_files
         archive_checksums ||= calculated_archive_checksums
       elsif changed_files.nil? || archive_checksums.nil?
@@ -26,54 +46,55 @@ module Zipr
 
       archive_checksums = case options[:archive_type]
                           when :zip
-                            extract_zip(archive_path, destination_folder, changed_files, options, archive_checksums: archive_checksums)
+                            extract_zip(destination_folder, changed_files, options, archive_checksums: archive_checksums)
                           when :seven_zip
-                            extract_seven_zip(archive_path, destination_folder, changed_files, options, archive_checksums: archive_checksums)
+                            extract_seven_zip(destination_folder, changed_files, options, archive_checksums: archive_checksums)
                           else
                             raise "':#{options[:archive_type]}' is not a supported archive type!"
                           end
 
+      EasyIO.logger.info "Extracting #{::File.basename(@path)} finished." unless options[:silent]
       FileUtils.mkdir_p(::File.dirname(checksum_path))
       ::File.write(checksum_path, archive_checksums.to_json)
     end
 
-    # options: { archive_type: :seven_zip }
+    # options: { archive_type: :seven_zip, silent: false }
     # archive_type values: :zip, :seven_zip
-    def add(archive_path, source_folder, source_files, options: nil, archive_checksums: nil)
+    def add(source_folder, source_files, options: nil, archive_checksums: nil)
       options ||= {}
       options[:archive_type] ||= :zip
       return nil if source_files.nil?
-      FileUtils.mkdir_p(::File.dirname(archive_path))
+      FileUtils.mkdir_p(::File.dirname(@path))
       calculated_checksums = case options[:archive_type]
-                            when :zip
-                              add_to_zip(archive_path, source_folder, source_files, archive_checksums: archive_checksums)
-                            when :seven_zip
-                              add_to_seven_zip(archive_path, source_folder, source_files, archive_checksums: archive_checksums)
-                            else
-                              raise "':#{options[:archive_type]}' is not a supported archive type!"
-                            end
-      raise "Failed to create archive at #{archive_path}!" unless ::File.file?(archive_path)
-      calculated_checksums['archive_checksum'] = ::Digest::SHA256.file(archive_path).hexdigest
+                             when :zip
+                               add_to_zip(source_folder, source_files, options, archive_checksums: archive_checksums)
+                             when :seven_zip
+                               add_to_seven_zip(source_folder, source_files, options, archive_checksums: archive_checksums)
+                             else
+                               raise "':#{options[:archive_type]}' is not a supported archive type!"
+                             end
+      raise "Failed to create archive at #{@path}!" unless ::File.file?(@path)
+      calculated_checksums['archive_checksum'] = ::Digest::SHA256.file(@path).hexdigest
+      EasyIO.logger.info "Archiving to #{::File.basename(@path)} finished." unless options[:silent]
       calculated_checksums
     end
 
     # Read a file inside a zip file without extracting it
-    def read_file(archive_path, relative_path, options: nil)
+    def view_file(relative_path, options: nil)
       options ||= {}
       options[:archive_type] ||= :zip
       raise 'Reading files inside a 7zip archive is not yet supported!' if options[:archive_type] == :seven_zip
-      EasyIO.logger.debug "Reading #{archive_path} // #{relative_path}..."
-      Zip::File.open(archive_path).read(relative_path)
+      EasyIO.logger.debug "Reading #{@path} // #{relative_path}..."
+      ::Zip::File.open(@path).read(relative_path)
     end
 
     private
 
-    # options: { exclude_files: [], exclude_unless_missing: [], overwrite: true }
-    def extract_zip(archive_path, destination_folder, changed_files, options, archive_checksums: nil)
+    def extract_zip(destination_folder, changed_files, options, archive_checksums: nil)
       archive_checksums ||= {}
-      archive_checksums['archive_checksum'] = Digest::SHA256.file(archive_path).hexdigest
-      Zip::File.open(archive_path) do |archive_items|
-        EasyIO.logger.info "Extracting to #{destination_folder}..."
+      archive_checksums['archive_checksum'] = Digest::SHA256.file(@path).hexdigest
+      ::Zip::File.open(@path) do |archive_items|
+        EasyIO.logger.info "Extracting to #{destination_folder}..." unless options[:silent]
         archive_items.each do |archive_item|
           destination_path = ::File.join(destination_folder.tr('\\', '/'), archive_item.name)
           next unless changed_files.nil? || changed_files.include?(archive_item.name)
@@ -85,7 +106,7 @@ module Zipr
           end
           next if ::File.file?(destination_path) && !options[:overwrite] # skip extract if the file exists and overwrite is false
           FileUtils.mkdir_p(::File.dirname(destination_path))
-          EasyIO.logger.info "Extracting #{archive_item.name}..."
+          EasyIO.logger.info "Extracting #{archive_item.name}..." unless options[:silent]
           archive_item.extract(destination_path) { :overwrite }
           archive_checksums[archive_item.name.tr('\\', '/')] = Digest::SHA256.file(destination_path).hexdigest
         end
@@ -93,13 +114,12 @@ module Zipr
       archive_checksums
     end
 
-    # options: { exclude_files: [], exclude_unless_missing: [], overwrite: true, password: nil }
-    def extract_seven_zip(archive_path, destination_folder, changed_files, options, archive_checksums: nil)
+    def extract_seven_zip(destination_folder, changed_files, options, archive_checksums: nil)
       archive_checksums ||= {}
-      archive_checksums['archive_checksum'] = Digest::SHA256.file(archive_path).hexdigest
-      ::File.open(archive_path, 'rb') do |archive_file|
+      archive_checksums['archive_checksum'] = Digest::SHA256.file(@path).hexdigest
+      ::File.open(@path, 'rb') do |archive_file|
         SevenZipRuby::Reader.open(archive_file, options) do |seven_zip_archive|
-          EasyIO.logger.info "Extracting to #{destination_folder}..."
+          EasyIO.logger.info "Extracting to #{destination_folder}..." unless options[:silent]
           seven_zip_archive.entries.each do |archive_item|
             destination_path = ::File.join(destination_folder.tr('\\', '/'), archive_item.path)
             next unless changed_files.nil? || changed_files.include?(archive_item.path)
@@ -113,7 +133,7 @@ module Zipr
               options['overwrite'] ? FileUtils.rm(destination_path) : next # skip extract if the file exists and overwrite is false
             end
             FileUtils.mkdir_p(::File.dirname(destination_path))
-            EasyIO.logger.info "Extracting #{archive_item.path}..."
+            EasyIO.logger.info "Extracting #{archive_item.path}..." unless options[:silent]
             seven_zip_archive.extract(archive_item.index, destination_folder)
             archive_checksums[archive_item.path.tr('\\', '/')] = Digest::SHA256.file(destination_path).hexdigest
           end
@@ -122,15 +142,15 @@ module Zipr
       archive_checksums
     end
 
-    # options: { exclude_files: [], exclude_unless_missing: [] }
-    def changed_files_for_extract(archive_path, checksum_file, destination_folder, options)
+    def changed_files_for_extract(checksum_file, destination_folder, options)
       changed_files = nil # changed_files must be nil if the checksum file does not yet exist
+      options ||= {}
       archive_checksums = {}
       if ::File.exist?(checksum_file)
         changed_files = []
         file_content = ::File.read(checksum_file)
         archive_checksums = JSON.parse(file_content)
-        return [nil, {}] if ::File.exist?(archive_path) && archive_checksums['archive_checksum'] != Digest::SHA256.file(archive_path).hexdigest # If the archive has changed, return and extract again
+        return [nil, {}] if ::File.exist?(@path) && archive_checksums['archive_checksum'] != Digest::SHA256.file(@path).hexdigest # If the archive has changed, return and extract again
         archive_checksums.each do |compressed_file, compressed_file_checksum|
           next if compressed_file == 'archive_checksum'
           destination_path = "#{destination_folder}/#{compressed_file}"
@@ -143,15 +163,16 @@ module Zipr
       [changed_files, archive_checksums]
     end
 
-    def add_to_zip(archive_path, source_folder, source_files, archive_checksums: nil)
+    def add_to_zip(source_folder, source_files, options, archive_checksums: nil)
       archive_checksums ||= {}
-      Zip::File.open(archive_path, Zip::File::CREATE) do |zip_archive|
-        EasyIO.logger.info "Compressing to #{archive_path}..."
+      options ||= {}
+      ::Zip::File.open(@path, ::Zip::File::CREATE) do |zip_archive|
+        EasyIO.logger.info "Adding to #{@path}..." unless options[:silent]
         source_files.each do |source_file|
           relative_path = source_file.tr('\\', '/')
           relative_path.slice!(source_folder.tr('\\', '/'))
           relative_path = relative_path.reverse.chomp('/').reverse
-          EasyIO.logger.info "Compressing #{relative_path}..."
+          EasyIO.logger.info "Compressing #{relative_path}..." unless options[:silent]
           if ::File.directory?(source_file)
             zip_archive.mkdir(relative_path) unless zip_archive.find_entry(relative_path)
             archive_item_checksum = 'directory'
@@ -165,17 +186,17 @@ module Zipr
       archive_checksums
     end
 
-    def add_to_seven_zip(archive_path, source_folder, source_files, archive_checksums: nil)
+    def add_to_seven_zip(source_folder, source_files, options, archive_checksums: nil)
       archive_checksums ||= {}
-      ::File.open(archive_path, 'wb') do |archive_file|
+      ::File.open(@path, 'wb') do |archive_file|
         SevenZipRuby::Writer.open(archive_file) do |seven_zip_archive|
-          EasyIO.logger.info "Compressing to #{archive_path}..."
+          EasyIO.logger.info "Compressing to #{@path}..." unless options[:silent]
           source_files.each do |source_file|
             relative_path = source_file.tr('\\', '/')
             relative_path.slice!(source_folder.tr('\\', '/'))
             relative_path = relative_path.reverse.chomp('/').reverse
             seven_zip_options = { as: relative_path }
-            EasyIO.logger.info "Compressing #{relative_path}..."
+            EasyIO.logger.info "Compressing #{relative_path}..." unless options[:silent]
             if ::File.directory?(source_file)
               seven_zip_archive.mkdir(relative_path)
               archive_item_checksum = 'directory'
@@ -191,9 +212,9 @@ module Zipr
     end
 
     # options: { exclude_files: [], exclude_unless_missing: [] }
-    def changed_files_for_add_to_archive(archive_path, checksum_file, source_folder, target_files, options = {})
-      checksum_file ||= Zipr.create_action_checksum_file(archive_path, target_files)
-      FileUtils.rm(checksum_file) if ::File.file?(checksum_file) && !::File.file?(archive_path) # Start over if the archive is missing
+    def changed_files_for_add_to_archive(checksum_file, source_folder, target_files, options = {})
+      checksum_file ||= Zipr.create_action_checksum_file(@path, target_files)
+      FileUtils.rm(checksum_file) if ::File.file?(checksum_file) && !::File.file?(@path) # Start over if the archive is missing
 
       archive_checksums = {}
       changed_files = []

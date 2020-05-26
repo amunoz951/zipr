@@ -33,17 +33,8 @@ module Zipr
     result
   end
 
-  def excluded_file?(file_path, options, destination_path: '', exists_in_zip: false)
-    options[:exclude_files] ||= []
-    options[:exclude_unless_missing] ||= []
-    return true if options[:exclude_files].any? { |e| file_path.tr('\\', '/') =~ /^#{wildcard_to_regex(e.tr('\\', '/'))}$/i }
-    return true if ::File.exist?(destination_path) && options[:exclude_unless_missing].any? { |e| file_path.tr('\\', '/') =~ /^#{wildcard_to_regex(e.tr('\\', '/'))}$/i }
-    return true if exists_in_zip && options[:exclude_unless_missing].any? { |e| file_path.tr('\\', '/') =~ /^#{wildcard_to_regex(e.tr('\\', '/'))}$/i }
-    false
-  end
-
   def wildcard_to_regex(entry)
-    entry.gsub(/([^\.])\*/, '\1.*') # convert any asterisk wildcard not preceded by a period to .*
+    entry.gsub(/([^\.\]])\*/, '\1.*') # convert any asterisk wildcard not preceded by a period or square bracket to .*
          .sub(/^\*/, '.*') # convert a string that starts with an asterisk to .* (not preceded by anything)
   end
 
@@ -58,9 +49,5 @@ module Zipr
 
   def checksums_folder
     "#{@cache_path}/zipr/archive_checksums"
-  end
-
-  def create_action_checksum_file(archive_path, source_files)
-    "#{checksums_folder}/#{::File.basename(archive_path)}_#{Digest::SHA256.hexdigest(archive_path + source_files.join)}.json"
   end
 end

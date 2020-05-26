@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |spec|
   spec.name          = 'zipr'
-  spec.version       = '0.1.1'
+  spec.version       = '0.2.0'
   spec.authors       = ['Alex Munoz']
   spec.email         = ['amunoz951@gmail.com']
   spec.license       = 'Apache-2.0'

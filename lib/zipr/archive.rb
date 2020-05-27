@@ -113,7 +113,6 @@ module Zipr
     def extract(destination_folder, files_to_extract: nil)
       raise "Unable to extract #{@path}! The file does not exist!" unless ::File.file?(@path)
       @options[:overwrite] = @mode != :if_missing
-      FileUtils.mkdir_p destination_folder unless ::File.directory?(destination_folder)
       files_to_extract = determine_files_to_extract(destination_folder, files_to_check: files_to_extract)
 
       case @options[:archive_type]
@@ -333,7 +332,8 @@ module Zipr
         return
       end
 
-      FileUtils.mkdir_p(destination_folder) unless ::File.directory?(destination_folder)
+      full_destination_folder = ::File.dirname(destination_path)
+      FileUtils.mkdir_p(full_destination_folder) unless ::File.directory?(full_destination_folder)
       EasyIO.logger.info "Extracting #{archive_entry_name}..." unless @options[:silent]
       extract_item_lambda.call(destination_path)
       @checksums[archive_entry_name.tr('\\', '/')] = Digest::SHA256.file(destination_path).hexdigest

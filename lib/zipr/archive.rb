@@ -208,9 +208,9 @@ module Zipr
 
       unless ::File.exist?(@path)
         # If the archive doesn't exist but checksums were provided, check for files to extract based off of checksums
-        return @checksums.select { |entry_name, checksum| _extract_file?(entry_name, checksum == 'directory', destination_folder, files_to_check) }.keys if @checksums.nil? || @checksums.empty?
+        return @checksums.select { |entry_name, checksum| _extract_file?(entry_name, checksum == 'directory', destination_folder, files_to_check) }.keys unless @checksums.nil? || @checksums.empty?
         # If the archive doesn't exist and no checksums were found, extract all files_to_check or :all files
-        return files_to_check || :all
+        return files_to_check
       end
 
       files_to_extract = case @options[:archive_type]

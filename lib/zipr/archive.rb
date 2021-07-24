@@ -210,7 +210,7 @@ module Zipr
       unless ::File.exist?(@path)
         # If the archive doesn't exist but checksums were provided, check for files to extract based off of checksums
         return @checksums.select { |entry_name, checksum| _extract_file?(entry_name, checksum == 'directory', destination_folder, files_to_check) }.keys unless @checksums.nil? || @checksums.empty?
-        # If the archive doesn't exist and no checksums were found, extract all files_to_check or :all files
+        # If the archive doesn't exist and no checksums were found, extract all files_to_check
         return files_to_check
       end
 
@@ -443,11 +443,17 @@ module Zipr
       @options[:exclude_files] ||= []
       @options[:exclude_unless_missing] ||= []
       @options[:exclude_unless_archive_changed] ||= []
-      return true if @options[:exclude_files].any? { |e| file_path.tr('\\', '/') =~ /^#{Zipr.wildcard_to_regex(e.tr('\\', '/'))}$/i }
-      return true if ::File.exist?(destination_path) && @options[:exclude_unless_missing].any? { |e| file_path.tr('\\', '/') =~ /^#{Zipr.wildcard_to_regex(e.tr('\\', '/'))}$/i }
-      return true if exists_in_zip && @options[:exclude_unless_missing].any? { |e| file_path.tr('\\', '/') =~ /^#{Zipr.wildcard_to_regex(e.tr('\\', '/'))}$/i }
-      return true if !@archive_changed && ::File.exist?(destination_path) && @options[:exclude_unless_archive_changed].any? { |e| file_path.tr('\\', '/') =~ /^#{Zipr.wildcard_to_regex(e.tr('\\', '/'))}$/i }
+      return true if @options[:exclude_files].any? { |e| file_path.tr('\\', '/') =~ _convert_backslashes_and_cast_to_regexp(e) }
+      return true if ::File.exist?(destination_path) && @options[:exclude_unless_missing].any? { |e| file_path.tr('\\', '/') =~ _convert_backslashes_and_cast_to_regexp(e) }
+      return true if exists_in_zip && @options[:exclude_unless_missing].any? { |e| file_path.tr('\\', '/') =~ _convert_backslashes_and_cast_to_regexp(e) }
+      return true if !@archive_changed && ::File.exist?(destination_path) && @options[:exclude_unless_archive_changed].any? { |e| file_path.tr('\\', '/') =~ _convert_backslashes_and_cast_to_regexp(e) }
       false
+    end
+
+    def _convert_backslashes_and_cast_to_regexp(path)
+      return path if path.is_a?(Regexp) # If it's already a regexp, leave it alone
+      path = path.tr('\\', '/')
+      /^#{Zipr.wildcard_to_regexp(path)}$/i
     end
 
     def _assign_common_accessors(options: nil, checksums: nil, mode: nil)

@@ -33,7 +33,7 @@ module Zipr
     result
   end
 
-  def wildcard_to_regex(entry)
+  def wildcard_to_regexp(entry)
     return entry if entry.is_a?(Regexp)
     escaped_entry = Regexp.escape(entry).gsub(/\\\*/, '.*') # Convert asterisks to .*
     /#{escaped_entry}/

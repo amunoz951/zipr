@@ -448,13 +448,15 @@ module Zipr
     end
 
     def _assign_common_accessors(options: nil, checksums: nil, mode: nil)
+      _assign_checksums(checksums)
       @options = options || @options || {}
-      @checksums = checksums || @checksums || {}
       @mode = mode || @mode || :idempotent
+      @archive_changed = ::File.exist?(@path) && @checksums['archive_checksum'] != Digest::SHA256.file(@path).hexdigest
+    end
 
-      archive_changed = ::File.exist?(@path) && @checksums['archive_checksum'] != Digest::SHA256.file(@path).hexdigest
-      outdated_checksums = @checksums.empty? || archive_changed
-      load_checksum_file if outdated_checksums # Read the checksums file if it hasn't been read yet
+    def _assign_checksums(checksums)
+      return load_checksum_file if checksums.nil? || checksums.empty? # Read the checksums file if it hasn't been read yet
+      @checksums = checksums || {}
     end
 
     # TODO: Add delete method to remove something from an archive

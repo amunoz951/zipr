@@ -14,6 +14,7 @@ module Zipr
     #     :archive_type - The type of archive - :seven_zip or :zip - Can be omitted if the archive exists or using default. Default: :zip
     #     :exclude_files - Array of files to be excluded from archiving/extracting - Can be relative or exact paths.
     #     :exclude_unless_missing - Array of files to be excluded from archiving/extracting only if they already exist - Can be relative or exact paths.
+    #     :exclude_unless_archive_changed - Array of files to be excluded from extracting only if the archive hasn't changed and they already exist - Use relative paths.
     #     :password - the archive password - currently :seven_zip is the only supported archive_type for encrypted archives.
     #     :silent - [true/false] No info messages if flagged
     #   checksums: A hash of checksums of the archived files. If you checked one of the determine_files methods for idempotency first, pass the result to this parameter to avoid duplicate processing.
@@ -441,9 +442,11 @@ module Zipr
     def _excluded_file?(file_path, destination_path: '', exists_in_zip: false)
       @options[:exclude_files] ||= []
       @options[:exclude_unless_missing] ||= []
+      @options[:exclude_unless_archive_changed] ||= []
       return true if @options[:exclude_files].any? { |e| file_path.tr('\\', '/') =~ /^#{Zipr.wildcard_to_regex(e.tr('\\', '/'))}$/i }
       return true if ::File.exist?(destination_path) && @options[:exclude_unless_missing].any? { |e| file_path.tr('\\', '/') =~ /^#{Zipr.wildcard_to_regex(e.tr('\\', '/'))}$/i }
       return true if exists_in_zip && @options[:exclude_unless_missing].any? { |e| file_path.tr('\\', '/') =~ /^#{Zipr.wildcard_to_regex(e.tr('\\', '/'))}$/i }
+      return true if !@archive_changed && ::File.exist?(destination_path) && @options[:exclude_unless_archive_changed].any? { |e| file_path.tr('\\', '/') =~ /^#{Zipr.wildcard_to_regex(e.tr('\\', '/'))}$/i }
       false
     end
 

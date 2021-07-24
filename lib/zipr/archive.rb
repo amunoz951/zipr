@@ -234,13 +234,22 @@ module Zipr
     #   An array of files to be added (or the :all symbol).
     # Parameters:
     #   source_folder: The filesystem directory where files are being added from.
-    #   files_to_check: Array of files intended to be added to an archive. Can be exact names/paths or names/paths with wildcards (glob style).
+    #   files_to_check: Array of files intended to be added to an archive. Can be exact names/paths or names/paths with wildcards (glob style) or a Regexp.
     #     default: All files and folders under the source_folder.
     def determine_files_to_add(source_folder, files_to_check: nil)
       files_to_check ||= Dir.glob("#{source_folder}/**/*".tr('\\', '/')) if files_to_check.nil?
       files_to_add = []
+      source_folder_glob = nil
       files_to_check.each do |target_search|
-        files = Dir.glob(Zipr.prepend_source_folder(source_folder, target_search))
+        files = if target_search.is_a?(Regexp)
+                  source_folder_glob ||= Dir.glob("#{source_folder.tr('\\', '/')}/**/*")
+                  source_folder_glob.select do |path|
+                    path =~ target_search
+                  end
+                  source_folder_glob.select { |path| path.to_s =~ target_search }
+                else
+                  Dir.glob(Zipr.prepend_source_folder(source_folder, target_search))
+                end
         files.each do |source_file|
           relative_path = Zipr.slice_source_folder(source_folder, source_file)
           exists_in_zip = !!@checksums[relative_path]

@@ -21,13 +21,21 @@ module Zipr
   def flattened_paths(source_folder, files)
     return files if source_folder.nil? || source_folder.empty?
     result = []
+    source_folder_glob = nil
     files.each do |entry|
+      if entry.is_a?(Regexp)
+        source_folder_glob ||= Dir.glob("#{source_folder.tr('\\', '/')}/**/*")
+        matched_files = source_folder_glob.select { |path| path =~ entry }
+        result += matched_files.map { |f| slice_source_folder(source_folder, f) }
+        next
+      end
+
       standardized_entry = "#{source_folder.tr('\\', '/')}/#{slice_source_folder(source_folder, entry)}"
       files_found = Dir.glob(standardized_entry)
       if files_found.empty?
         result.push(entry)
       else
-        result += files_found.map { |e| slice_source_folder(source_folder, e) }
+        result += files_found.map { |f| slice_source_folder(source_folder, f) }
       end
     end
     result

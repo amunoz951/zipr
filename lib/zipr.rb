@@ -21,7 +21,7 @@ require 'easy_io'
 require 'json'
 require 'tmpdir'
 require 'fileutils'
-require 'seven_zip_ruby_am'
+require 'seven_zip_ruby'
 require 'os'
 
 require_relative 'zipr/config'

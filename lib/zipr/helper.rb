@@ -34,8 +34,9 @@ module Zipr
   end
 
   def wildcard_to_regex(entry)
-    entry.gsub(/([^\.\]])\*/, '\1.*') # convert any asterisk wildcard not preceded by a period or square bracket to .*
-         .sub(/^\*/, '.*') # convert a string that starts with an asterisk to .* (not preceded by anything)
+    return entry if entry.is_a?(Regexp)
+    escaped_entry = Regexp.escape(entry).gsub(/\\\*/, '.*') # Convert asterisks to .*
+    /#{escaped_entry}/
   end
 
   def prepend_source_folder(source_folder, entry)

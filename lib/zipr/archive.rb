@@ -469,7 +469,7 @@ module Zipr
       _assign_checksums(checksums)
       @options = options || @options || {}
       @mode = mode || @mode || :idempotent
-      @archive_changed = ::File.exist?(@path) && @checksums['archive_checksum'] != Digest::SHA256.file(@path).hexdigest
+      @archive_changed = (::File.exist?(@path) && @checksums['archive_checksum'] != Digest::SHA256.file(@path).hexdigest) || !::File.exist?(@checksum_path)
     end
 
     def _assign_checksums(checksums)

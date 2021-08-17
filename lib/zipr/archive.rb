@@ -441,6 +441,7 @@ module Zipr
     def _extract_file?(archive_entry_name, is_a_directory, destination_folder, files_to_check)
       destination_path = "#{destination_folder}/#{archive_entry_name}"
       return false unless files_to_check == :all || files_to_check.include?(archive_entry_name) # Make sure the file is in the whitelist if it was provided
+      return false if archive_entry_name == 'archive_checksum'
       return false if ::File.directory?(destination_path) && is_a_directory # Archive item is a directory and the destination directory exists
       return false if @mode == :if_missing && ::File.exist?(destination_path) # File exists and we're not overwriting existing files due to the mode
       return false if _excluded_file?(archive_entry_name, destination_path: destination_path) # File is excluded in :options

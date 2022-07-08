@@ -357,7 +357,7 @@ module Zipr
       ::Zip::File.open(@path, ::Zip::File::CREATE) do |zip_archive|
         EasyIO.logger.info "Adding to #{@path}..." unless @options[:silent]
         files_to_add.each do |source_file|
-          add_directory_lambda = ->(relative_path) { zip_archive.mkdir(relative_path) }
+          add_directory_lambda = ->(relative_path) { zip_archive.mkdir(relative_path) unless zip_archive.find_entry(relative_path) }
           add_file_lambda = ->(relative_path) { zip_archive.add(relative_path, source_file) { :overwrite } }
           _add_item(source_file, add_directory_lambda, add_file_lambda, source_folder)
         end

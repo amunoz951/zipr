@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |spec|
   spec.name          = 'zipr'
-  spec.version       = '0.4.0'
+  spec.version       = '0.4.1'
   spec.authors       = ['Alex Munoz']
   spec.email         = ['amunoz951@gmail.com']
   spec.license       = 'Apache-2.0'
@@ -14,7 +14,7 @@ Gem::Specification.new do |spec|
   spec.files         = Dir['LICENSE', 'lib/**/*']
   spec.require_paths = ['lib']
 
-  spec.add_dependency 'easy_io', '~> 0.5.0'
+  spec.add_dependency 'easy_io', '~> 0.6'
   spec.add_dependency 'json', '~> 2'
   spec.add_dependency 'rubyzip', '~> 2'
   spec.add_dependency 'seven_zip_ruby', '~> 1.3'
